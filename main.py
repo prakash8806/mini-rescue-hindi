@@ -30,7 +30,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT WITH MULTI-MODEL FALLBACK ---
 def generate_story():
     # एकामागून एक ट्राय करण्यासाठी वेगवेगळ्या मॉडेल्सची लिस्ट
-    models_to_try = ['gemini-flash', 'gemini-pro']
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro']
     
     prompt = """
     You are a children's cartoon director. Create a brand new, original 45-second animal rescue story in Hindi for YouTube Shorts.
@@ -54,7 +54,8 @@ def generate_story():
     for model_name in models_to_try:
         try:
             print(f"🤖 मॉडेल वापरत आहे: {model_name}...")
-            model = genai.GenerativeModel(model_name)
+            # येथे खाली 'models/' जोडा
+            model = genai.GenerativeModel(f"models/{model_name}")
             response = model.generate_content(prompt)
             text = response.text.replace("```json", "").replace("```", "").strip()
             return json.loads(text)
