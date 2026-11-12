@@ -15,6 +15,9 @@ from moviepy import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, conc
 import googleapiclient.discovery
 import googleapiclient.http
 from google.oauth2.credentials import Credentials
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # --- CONFIGURATION ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -69,17 +72,18 @@ async def generate_voiceover(text_list, output_path="voiceover.mp3"):
     communicate = edge_tts.Communicate(full_text, "hi-IN-SwaraNeural")
     await communicate.save(output_path)
 
-# --- STEP 3: GENERATE IMAGE ASSETS WITH MULTI-SERVER FALLBACK ---
+# --- STEP 3: GENERATE HIGH-QUALITY FREE IMAGES ---
 def fetch_image(prompt, output_filename):
-    # वापरण्यासाठी वेगवेगळ्या मोफत इमेज सर्व्हरची लिस्ट
-    image_providers = [
-        f"https://picsum.photos/seed/{random.randint(1, 100000)}/1080/1920",
-        f"https://picsum.photos/1080/1920?blur=1",
-        f"https://picsum.photos/seed/{random.randint(100, 999)}/1080/1920"
+    # वेगवेगळ्या मोफत आणि भारी इमेज देणाऱ्या सर्व्हरची लिस्ट
+    image_sources = [
+        f"https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1080&h=1920&fit=crop",
+        f"https://images.unsplash.com/photo-1563089145-599997674d42?w=1080&h=1920&fit=crop",
+        f"https://picsum.photos/seed/{random.randint(1, 999999)}/1080/1920",
+        f"https://picsum.photos/1080/1920?random={random.randint(1, 1000)}"
     ]
     
     success = False
-    for url in image_providers:
+    for url in image_sources:
         try:
             req = urllib.request.Request(
                 url,
@@ -87,19 +91,17 @@ def fetch_image(prompt, output_filename):
             )
             with urllib.request.urlopen(req, timeout=10) as response, open(output_filename, 'wb') as out_file:
                 out_file.write(response.read())
-            print(f"✅ इमेज यशस्वीरित्या डाऊनलोड झाली: {output_filename}")
+            print(f"✅ भारी इमेज यशस्वीरित्या डाऊनलोड झाली: {output_filename}")
             success = True
             break
         except Exception as e:
-            print(f"⚠️ सर्व्हर एरर ({e}), दुसऱ्या सर्व्हरकडून प्रयत्न करत आहे...")
+            print(f"⚠️ लिंक ट्राय करताना एरर आली ({e}), पुढची लिंक तपासत आहे...")
             continue
             
     if not success:
-        # जर सर्व्हर फेल झाले, तर साधी ब्लॅक किंवा डमी इमेज तयार करेल जेणेकरून कोड क्रॅश होणार नाही
-        print("⚠️ सर्व इमेज सर्व्हर व्यस्त आहेत, लोकल डमी इमेज वापरत आहे.")
-        from PIL import Image
-        img = Image.new('RGB', (1080, 1920), color=(73, 109, 137))
-        img.save(output_filename)
+        print("⚠️ सर्व लिंक्स व्यस्त आहेत, डीफॉल्ट सुंदर बॅकग्राउंड वापरत आहे.")
+        fallback_url = f"https://picsum.photos/1080/1920"
+        urllib.request.urlretrieve(fallback_url, output_filename)
 
 # --- STEP 4: ASSEMBLE VIDEO WITH MOVIEPY ---
 def create_video(story_data, audio_path, output_video="final_short.mp4"):
@@ -113,7 +115,6 @@ def create_video(story_data, audio_path, output_video="final_short.mp4"):
         img_path = f"scene_{i}.jpg"
         fetch_image(scene["visual"], img_path)
         
-        # MoviePy v2.x साठी with_duration आणि resized वापरले आहे
         clip = ImageClip(img_path).with_duration(duration_per_scene)
         clip = clip.resized(height=1920)
         clips.append(clip)
@@ -150,7 +151,48 @@ def upload_to_youtube(video_file, title, description):
     media = googleapiclient.http.MediaFileUpload(video_file, chunksize=-1, resumable=True)
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
     response = request.execute()
-    print(f"Uploaded successfully! Video ID: {response.get('id')}")
+    video_id = response.get('id')
+    print(f"Uploaded successfully! Video ID: {video_id}")
+    return video_id
+
+# --- STEP 6: EMAIL NOTIFICATION FUNCTION ---
+def send_email_notification(video_title, video_id):
+    sender_email = os.environ.get("SENDER_EMAIL")
+    app_password = os.environ.get("EMAIL_APP_PASSWORD")
+    
+    if not sender_email or not app_password:
+        print("⚠️ Email credentials सापडले नाहीत, त्यामुळे मेल पाठवला नाही.")
+        return
+
+    receiver_email = sender_email  # स्वतःलाच मेल येईल
+    
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "🚀 नवीन YouTube Short यशस्वीरित्या अपलोड झाला!"
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    
+    video_link = f"https://youtu.be/{video_id}"
+    
+    html = f"""
+    <html>
+      <body>
+        <h2>🎉 अभिनंदन! तुमचे ऑटोमेशन यशस्वी झाले आहे.</h2>
+        <p>तुमचा नवीन युट्यूब शॉर्ट्स व्हिडिओ यशस्वीरित्या युट्यूबवर पब्लिश झाला आहे.</p>
+        <p><b>शीर्षक (Title):</b> {video_title}</p>
+        <p><b>पाहण्यासाठी येथे क्लिक करा:</b> <a href="{video_link}">व्हिडिओ पहा</a></p>
+      </body>
+    </html>
+    """
+    
+    message.attach(MIMEText(html, "html"))
+    
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, app_password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+        print("📧 ईमेल नोटिफिकेशन यशस्वीरित्या पाठवली आहे!")
+    except Exception as e:
+        print(f"⚠️ ईमेल पाठवताना एरर आली: {e}")
 
 async def main():
     print("--- Starting Daily Mini Rescue Hindi Automation ---")
@@ -164,8 +206,11 @@ async def main():
     video_path = create_video(story, "voice.mp3")
     print("Video rendered successfully.")
     
-    upload_to_youtube(video_path, story["title"] + " #Shorts", story["description"])
+    video_id = upload_to_youtube(video_path, story["title"] + " #Shorts", story["description"])
     print("Publishing complete!")
+    
+    # व्हिडिओ अपलोड झाल्यावर जीमेलवर मेल पाठवेल
+    send_email_notification(story['title'], video_id)
 
 if __name__ == "__main__":
     asyncio.run(main())
