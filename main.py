@@ -22,13 +22,6 @@ YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# 2. **हा कोड इथे टाका (कोणते मॉडेल उपलब्ध आहे हे तपासण्यासाठी)**
-print("--- Available Models ---")
-for m in genai.list_models():
-    if 'generateContent' in m.supported_generation_methods:
-        print(m.name)
-print("------------------------")
-
 # --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT ---
 def generate_story():
     model = genai.GenerativeModel('gemini-3.8-flash')
@@ -78,12 +71,14 @@ def create_video(story_data, audio_path, output_video="final_short.mp4"):
         img_path = f"scene_{i}.jpg"
         fetch_image(scene["visual"], img_path)
         
-        clip = ImageClip(img_path).set_duration(duration_per_scene)
+        # MoviePy v2.x साठी with_duration वापरले आहे
+        clip = ImageClip(img_path).with_duration(duration_per_scene)
         clip = clip.resize(height=1920)
         clips.append(clip)
         
     video = concatenate_videoclips(clips, method="compose")
-    video = video.set_audio(audio_clip)
+    # MoviePy v2.x साठी with_audio वापरले आहे
+    video = video.with_audio(audio_clip)
     video.write_videofile(output_video, fps=24, codec="libx264", audio_codec="aac")
     return output_video
 
