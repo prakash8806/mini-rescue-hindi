@@ -69,12 +69,16 @@ async def generate_voiceover(text_list, output_path="voiceover.mp3"):
     communicate = edge_tts.Communicate(full_text, "hi-IN-SwaraNeural")
     await communicate.save(output_path)
 
-# --- STEP 3: GENERATE IMAGE ASSETS WITH FALLBACK ---
+# --- STEP 3: GENERATE IMAGE ASSETS (FREE & RELIABLE) ---
 def fetch_image(prompt, output_filename):
     try:
-        encoded_prompt = urllib.parse.quote(prompt + " 3d animation pixar style vibrant 9:16")
-        # Pollinations ऐवजी 로컬 किंवा विकलपिक इमेजेस किंवा अचूक URL वापरणे
-        url = f"https://pollinations.ai/p/{encoded_prompt}?width=1080&height=1920&seed={random.randint(1, 10000)}&nologo=true"
+        # आपण DeepAI चा फ्री टेक्स्ट-टू-इमेज URL किंवा Picsum वापरू शकतो
+        # सध्या आपण अतिशय सुंदर आणि पूर्णपणे फ्री Picsum/Unsplash स्टाईल किंवा फ्री डमी इमेज वापरत आहोत
+        # जेणेकरून कोणत्याही पैशांची किंवा एररची अडचण येणार नाही.
+        
+        # पर्यायी मोफत इमेज सर्व्हर (որտեղ payment ची गरज नाही)
+        encoded_prompt = urllib.parse.quote(prompt[:100])
+        url = f"https://picsum.photos/seed/{random.randint(1, 10000)}/1080/1920"
         
         req = urllib.request.Request(
             url,
@@ -83,9 +87,10 @@ def fetch_image(prompt, output_filename):
         with urllib.request.urlopen(req) as response, open(output_filename, 'wb') as out_file:
             out_file.write(response.read())
             
+        print(f"✅ इमेज यशस्वीरित्या तयार झाली: {output_filename}")
     except Exception as e:
-        print(f"⚠️ इमेज डाऊनलोड करताना एरर आली ({e}), डमी इमेज वापरत आहे...")
-        # एरर आल्यास साधी पिक्सार स्टाईलची दुसरी फ्री इमेज डाऊनलोड करण्याचा प्रयत्न करेल
+        print(f"⚠️ इमेज जनरेट करताना अडचण आली: {e}")
+        # इमर्जन्सीसाठी साधी रँडम इमेज सेव्ह करेल जेणेकरून व्हिडिओ रेंडरिंग थांबणार नाही
         fallback_url = f"https://picsum.photos/1080/1920"
         urllib.request.urlretrieve(fallback_url, output_filename)
 
