@@ -30,7 +30,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT WITH MULTI-MODEL FALLBACK ---
 def generate_story():
     # एकामागून एक ट्राय करण्यासाठी वेगवेगळ्या मॉडेल्सची लिस्ट
-    models_to_try = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.8-flash']
+    models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash']
     
     prompt = """
     You are a children's cartoon director. Create a brand new, original 45-second animal rescue story in Hindi for YouTube Shorts.
