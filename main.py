@@ -69,11 +69,25 @@ async def generate_voiceover(text_list, output_path="voiceover.mp3"):
     communicate = edge_tts.Communicate(full_text, "hi-IN-SwaraNeural")
     await communicate.save(output_path)
 
-# --- STEP 3: GENERATE IMAGE ASSETS ---
+# --- STEP 3: GENERATE IMAGE ASSETS WITH FALLBACK ---
 def fetch_image(prompt, output_filename):
-    encoded_prompt = urllib.parse.quote(prompt + " 3d animation pixar style vibrant 9:16")
-    url = f"https://pollinations.ai/p/{encoded_prompt}?width=1080&height=1920&nologo=true"
-    urllib.request.urlretrieve(url, output_filename)
+    try:
+        encoded_prompt = urllib.parse.quote(prompt + " 3d animation pixar style vibrant 9:16")
+        # Pollinations ऐवजी 로컬 किंवा विकलपिक इमेजेस किंवा अचूक URL वापरणे
+        url = f"https://pollinations.ai/p/{encoded_prompt}?width=1080&height=1920&seed={random.randint(1, 10000)}&nologo=true"
+        
+        req = urllib.request.Request(
+            url,
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        with urllib.request.urlopen(req) as response, open(output_filename, 'wb') as out_file:
+            out_file.write(response.read())
+            
+    except Exception as e:
+        print(f"⚠️ इमेज डाऊनलोड करताना एरर आली ({e}), डमी इमेज वापरत आहे...")
+        # एरर आल्यास साधी पिक्सार स्टाईलची दुसरी फ्री इमेज डाऊनलोड करण्याचा प्रयत्न करेल
+        fallback_url = f"https://picsum.photos/1080/1920"
+        urllib.request.urlretrieve(fallback_url, output_filename)
 
 # --- STEP 4: ASSEMBLE VIDEO WITH MOVIEPY ---
 def create_video(story_data, audio_path, output_video="final_short.mp4"):
