@@ -24,9 +24,11 @@ YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT WITH AUTO-RETRY ---
+# --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT WITH MULTI-MODEL FALLBACK ---
 def generate_story():
-    model = genai.GenerativeModel('gemini-3.8-flash')
+    # एकामागून एक ट्राय करण्यासाठी वेगवेगळ्या मॉडेल्सची लिस्ट
+    models_to_try = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.8-flash']
+    
     prompt = """
     You are a children's cartoon director. Create a brand new, original 45-second animal rescue story in Hindi for YouTube Shorts.
     Characters: Chhotu (Baby Elephant in blue uniform), Bunty (Rabbit in yellow shirt), Goldie (Puppy in red collar), Young Rescuer (Boy in red jacket).
@@ -46,20 +48,20 @@ def generate_story():
     Return ONLY valid JSON. No markdown ticks around it if possible, or parse cleanly.
     """
     
-    max_retries = 3  # कोटा संपल्यास जास्तीत जास्त ३ वेळा प्रयत्न करेल
-    for attempt in range(max_retries):
+    for model_name in models_to_try:
         try:
+            print(f"🤖 मॉडेल वापरत आहे: {model_name}...")
+            model = genai.GenerativeModel(model_name)
             response = model.generate_content(prompt)
             text = response.text.replace("```json", "").replace("```", "").strip()
             return json.loads(text)
-        except ResourceExhausted as e:
-            print(f"Quota limit संपली आहे (429). ६० सेकंद थांबून पुन्हा प्रयत्न करत आहे ({attempt+1}/{max_retries})...")
-            time.sleep(60)  # ६० सेकंद थांबेल
+        except ResourceExhausted:
+            print(f"⚠️ {model_name} चा कोटा संपला आहे (429). पुढच्या मॉडेलवर स्विच करत आहे...")
+            time.sleep(5) # ५ सेकंद थांबून पुढचे मॉडेल ट्राय करेल
         except Exception as e:
-            print(f"इतर एरर आली: {e}")
-            raise e
+            print(f"⚠️ {model_name} मध्ये एरर आली: {e}. पुढच्या मॉडेलकडे जात आहे...")
             
-    raise Exception("भरपूर प्रयत्न करूनही जेमॅनि API कडून रिस्पॉन्स मिळाला नाही.")
+    raise Exception("सर्वच्या सर्व मॉडेल्सचे (Gemini Models) कोटे संपले आहेत किंवा रिस्पॉन्स मिळाला नाही.")
 
 # --- STEP 2: GENERATE VOICE (EDGE TTS) ---
 async def generate_voiceover(text_list, output_path="voiceover.mp3"):
