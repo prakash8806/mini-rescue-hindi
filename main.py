@@ -9,7 +9,7 @@ import google.generativeai as genai
 from gtts import gTTS
 import edge_tts
 import asyncio
-from moviepy.editor import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
+from moviepy import ImageClip, AudioFileClip, TextClip, CompositeVideoClip, concatenate_videoclips
 import googleapiclient.discovery
 import googleapiclient.http
 from google.oauth2.credentials import Credentials
