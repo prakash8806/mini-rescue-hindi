@@ -3,9 +3,11 @@ import sys
 import json
 import random
 import datetime
+import time
 import urllib.request
 import urllib.parse
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted
 from gtts import gTTS
 import edge_tts
 import asyncio
@@ -22,7 +24,7 @@ YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT ---
+# --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT WITH AUTO-RETRY ---
 def generate_story():
     model = genai.GenerativeModel('gemini-3.8-flash')
     prompt = """
@@ -43,9 +45,21 @@ def generate_story():
     }
     Return ONLY valid JSON. No markdown ticks around it if possible, or parse cleanly.
     """
-    response = model.generate_content(prompt)
-    text = response.text.replace("```json", "").replace("```", "").strip()
-    return json.loads(text)
+    
+    max_retries = 3  # कोटा संपल्यास जास्तीत जास्त ३ वेळा प्रयत्न करेल
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(prompt)
+            text = response.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(text)
+        except ResourceExhausted as e:
+            print(f"Quota limit संपली आहे (429). ६० सेकंद थांबून पुन्हा प्रयत्न करत आहे ({attempt+1}/{max_retries})...")
+            time.sleep(60)  # ६० सेकंद थांबेल
+        except Exception as e:
+            print(f"इतर एरर आली: {e}")
+            raise e
+            
+    raise Exception("भरपूर प्रयत्न करूनही जेमॅनि API कडून रिस्पॉन्स मिळाला नाही.")
 
 # --- STEP 2: GENERATE VOICE (EDGE TTS) ---
 async def generate_voiceover(text_list, output_path="voiceover.mp3"):
