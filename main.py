@@ -22,6 +22,13 @@ YT_REFRESH_TOKEN = os.environ.get("YT_REFRESH_TOKEN")
 
 genai.configure(api_key=GEMINI_API_KEY)
 
+# 2. **हा कोड इथे टाका (कोणते मॉडेल उपलब्ध आहे हे तपासण्यासाठी)**
+print("--- Available Models ---")
+for m in genai.list_models():
+    if 'generateContent' in m.supported_generation_methods:
+        print(m.name)
+print("------------------------")
+
 # --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT ---
 def generate_story():
     model = genai.GenerativeModel('gemini-2.5-flash')
