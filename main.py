@@ -73,14 +73,17 @@ async def generate_voiceover(text_list, output_path="voiceover.mp3"):
     await communicate.save(output_path)
 
 # --- STEP 3: GENERATE HIGH-QUALITY FREE IMAGES ---
-def fetch_image(prompt, output_filename):
-    # वेगवेगळ्या मोफत आणि भारी इमेज देणाऱ्या सर्व्हरची लिस्ट
+def fetch_image(prompt, output_filename, scene_index=0):
+    # प्रत्येक सीनसाठी वेगळी आणि युनिक इमेज मिळण्यासाठी रँडम सीड आणि वेगवेगळे सोर्स
     image_sources = [
+        f"https://picsum.photos/seed/scene_{scene_index}_{random.randint(1, 999999)}/1080/1920",
+        f"https://picsum.photos/1080/1920?random={scene_index}_{random.randint(1, 1000)}",
         f"https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1080&h=1920&fit=crop",
-        f"https://images.unsplash.com/photo-1563089145-599997674d42?w=1080&h=1920&fit=crop",
-        f"https://picsum.photos/seed/{random.randint(1, 999999)}/1080/1920",
-        f"https://picsum.photos/1080/1920?random={random.randint(1, 1000)}"
+        f"https://images.unsplash.com/photo-1563089145-599997674d42?w=1080&h=1920&fit=crop"
     ]
+    
+    # लिस्ट रँडमली शफल करूया जेणेकरून प्रत्येक वेळी वेगळा सोर्स पहिला जाईल
+    random.shuffle(image_sources)
     
     success = False
     for url in image_sources:
@@ -91,16 +94,14 @@ def fetch_image(prompt, output_filename):
             )
             with urllib.request.urlopen(req, timeout=10) as response, open(output_filename, 'wb') as out_file:
                 out_file.write(response.read())
-            print(f"✅ भारी इमेज यशस्वीरित्या डाऊनलोड झाली: {output_filename}")
+            print(f"✅ इमेज यशस्वीरित्या डाऊनलोड झाली: {output_filename}")
             success = True
             break
         except Exception as e:
-            print(f"⚠️ लिंक ट्राय करताना एरर आली ({e}), पुढची लिंक तपासत आहे...")
             continue
             
     if not success:
-        print("⚠️ सर्व लिंक्स व्यस्त आहेत, डीफॉल्ट सुंदर बॅकग्राउंड वापरत आहे.")
-        fallback_url = f"https://picsum.photos/1080/1920"
+        fallback_url = f"https://picsum.photos/seed/fallback_{scene_index}/1080/1920"
         urllib.request.urlretrieve(fallback_url, output_filename)
 
 # --- STEP 4: ASSEMBLE VIDEO WITH MOVIEPY ---
@@ -113,7 +114,8 @@ def create_video(story_data, audio_path, output_video="final_short.mp4"):
     clips = []
     for i, scene in enumerate(scenes):
         img_path = f"scene_{i}.jpg"
-        fetch_image(scene["visual"], img_path)
+        # येथे i पास केला आहे जेणेकरून प्रत्येक सीनसाठी वेगळी इमेज येईल
+        fetch_image(scene["visual"], img_path, scene_index=i)
         
         clip = ImageClip(img_path).with_duration(duration_per_scene)
         clip = clip.resized(height=1920)
