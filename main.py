@@ -24,7 +24,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 # --- STEP 1: GENERATE ORIGINAL STORY & SCRIPT ---
 def generate_story():
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     prompt = """
     You are a children's cartoon director. Create a brand new, original 45-second animal rescue story in Hindi for YouTube Shorts.
     Characters: Chhotu (Baby Elephant in blue uniform), Bunty (Rabbit in yellow shirt), Goldie (Puppy in red collar), Young Rescuer (Boy in red jacket).
