@@ -69,30 +69,37 @@ async def generate_voiceover(text_list, output_path="voiceover.mp3"):
     communicate = edge_tts.Communicate(full_text, "hi-IN-SwaraNeural")
     await communicate.save(output_path)
 
-# --- STEP 3: GENERATE IMAGE ASSETS (FREE & RELIABLE) ---
+# --- STEP 3: GENERATE IMAGE ASSETS WITH MULTI-SERVER FALLBACK ---
 def fetch_image(prompt, output_filename):
-    try:
-        # आपण DeepAI चा फ्री टेक्स्ट-टू-इमेज URL किंवा Picsum वापरू शकतो
-        # सध्या आपण अतिशय सुंदर आणि पूर्णपणे फ्री Picsum/Unsplash स्टाईल किंवा फ्री डमी इमेज वापरत आहोत
-        # जेणेकरून कोणत्याही पैशांची किंवा एररची अडचण येणार नाही.
-        
-        # पर्यायी मोफत इमेज सर्व्हर (որտեղ payment ची गरज नाही)
-        encoded_prompt = urllib.parse.quote(prompt[:100])
-        url = f"https://picsum.photos/seed/{random.randint(1, 10000)}/1080/1920"
-        
-        req = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0'}
-        )
-        with urllib.request.urlopen(req) as response, open(output_filename, 'wb') as out_file:
-            out_file.write(response.read())
+    # वापरण्यासाठी वेगवेगळ्या मोफत इमेज सर्व्हरची लिस्ट
+    image_providers = [
+        f"https://picsum.photos/seed/{random.randint(1, 100000)}/1080/1920",
+        f"https://picsum.photos/1080/1920?blur=1",
+        f"https://picsum.photos/seed/{random.randint(100, 999)}/1080/1920"
+    ]
+    
+    success = False
+    for url in image_providers:
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=10) as response, open(output_filename, 'wb') as out_file:
+                out_file.write(response.read())
+            print(f"✅ इमेज यशस्वीरित्या डाऊनलोड झाली: {output_filename}")
+            success = True
+            break
+        except Exception as e:
+            print(f"⚠️ सर्व्हर एरर ({e}), दुसऱ्या सर्व्हरकडून प्रयत्न करत आहे...")
+            continue
             
-        print(f"✅ इमेज यशस्वीरित्या तयार झाली: {output_filename}")
-    except Exception as e:
-        print(f"⚠️ इमेज जनरेट करताना अडचण आली: {e}")
-        # इमर्जन्सीसाठी साधी रँडम इमेज सेव्ह करेल जेणेकरून व्हिडिओ रेंडरिंग थांबणार नाही
-        fallback_url = f"https://picsum.photos/1080/1920"
-        urllib.request.urlretrieve(fallback_url, output_filename)
+    if not success:
+        # जर सर्व्हर फेल झाले, तर साधी ब्लॅक किंवा डमी इमेज तयार करेल जेणेकरून कोड क्रॅश होणार नाही
+        print("⚠️ सर्व इमेज सर्व्हर व्यस्त आहेत, लोकल डमी इमेज वापरत आहे.")
+        from PIL import Image
+        img = Image.new('RGB', (1080, 1920), color=(73, 109, 137))
+        img.save(output_filename)
 
 # --- STEP 4: ASSEMBLE VIDEO WITH MOVIEPY ---
 def create_video(story_data, audio_path, output_video="final_short.mp4"):
