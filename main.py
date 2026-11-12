@@ -85,13 +85,12 @@ def create_video(story_data, audio_path, output_video="final_short.mp4"):
         img_path = f"scene_{i}.jpg"
         fetch_image(scene["visual"], img_path)
         
-        # MoviePy v2.x साठी with_duration वापरले आहे
+        # MoviePy v2.x साठी with_duration आणि resized वापरले आहे
         clip = ImageClip(img_path).with_duration(duration_per_scene)
-        clip = clip.resize(height=1920)
+        clip = clip.resized(height=1920)
         clips.append(clip)
         
     video = concatenate_videoclips(clips, method="compose")
-    # MoviePy v2.x साठी with_audio वापरले आहे
     video = video.with_audio(audio_clip)
     video.write_videofile(output_video, fps=24, codec="libx264", audio_codec="aac")
     return output_video
