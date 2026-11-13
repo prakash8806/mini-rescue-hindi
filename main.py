@@ -74,34 +74,25 @@ async def generate_voiceover(text_list, output_path="voiceover.mp3"):
 
 # --- STEP 3: GENERATE HIGH-QUALITY FREE IMAGES ---
 def fetch_image(prompt, output_filename, scene_index=0):
-    # प्रत्येक सीनसाठी वेगळी आणि युनिक इमेज मिळण्यासाठी रँडम सीड आणि वेगवेगळे सोर्स
-    image_sources = [
-        f"https://picsum.photos/seed/scene_{scene_index}_{random.randint(1, 999999)}/1080/1920",
-        f"https://picsum.photos/1080/1920?random={scene_index}_{random.randint(1, 1000)}",
-        f"https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1080&h=1920&fit=crop",
-        f"https://images.unsplash.com/photo-1563089145-599997674d42?w=1080&h=1920&fit=crop"
-    ]
+    # Gemini ने तयार केलेला व्हिज्युअल प्रॉम्प्ट घेऊन त्याला URL-safe बनवणे
+    # कार्टून स्टाईल जोडणे जेणेकरून इमेजेस नेहमी 3D कार्टून येतील
+    cartoon_prompt = f"3D Disney Pixar style cute cartoon animation, bright colors, children book illustration: {prompt}"
+    encoded_prompt = urllib.parse.quote(cartoon_prompt)
     
-    # लिस्ट रँडमली शफल करूया जेणेकरून प्रत्येक वेळी वेगळा सोर्स पहिला जाईल
-    random.shuffle(image_sources)
+    # Pollinations.ai ची मोफत एआय इमेज जनरेटर लिंक (कोणत्याही API Key शिवाय चालते)
+    ai_image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&nologo=true&seed={random.randint(1, 999999)}"
     
-    success = False
-    for url in image_sources:
-        try:
-            req = urllib.request.Request(
-                url,
-                headers={'User-Agent': 'Mozilla/5.0'}
-            )
-            with urllib.request.urlopen(req, timeout=10) as response, open(output_filename, 'wb') as out_file:
-                out_file.write(response.read())
-            print(f"✅ इमेज यशस्वीरित्या डाऊनलोड झाली: {output_filename}")
-            success = True
-            break
-        except Exception as e:
-            continue
-            
-    if not success:
-        fallback_url = f"https://picsum.photos/seed/fallback_{scene_index}/1080/1920"
+    try:
+        req = urllib.request.Request(
+            ai_image_url,
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        with urllib.request.urlopen(req, timeout=30) as response, open(output_filename, 'wb') as out_file:
+            out_file.write(response.read())
+        print(f"🎨 एआय कार्टून इमेज यशस्वीरित्या तयार झाली [{scene_index}]: {output_filename}")
+    except Exception as e:
+        print(f"⚠️ एआय इमेज बनवताना एरर आली ({e}), बॅकअप इमेज वापरत आहे...")
+        fallback_url = f"https://picsum.photos/seed/cartoon_{scene_index}/1080/1920"
         urllib.request.urlretrieve(fallback_url, output_filename)
 
 # --- STEP 4: ASSEMBLE VIDEO WITH MOVIEPY ---
@@ -114,7 +105,7 @@ def create_video(story_data, audio_path, output_video="final_short.mp4"):
     clips = []
     for i, scene in enumerate(scenes):
         img_path = f"scene_{i}.jpg"
-        # येथे i पास केला आहे जेणेकरून प्रत्येक सीनसाठी वेगळी इमेज येईल
+        # प्रत्येक सीनसाठी वेगळा प्रॉम्प्ट आणि index पास होईल
         fetch_image(scene["visual"], img_path, scene_index=i)
         
         clip = ImageClip(img_path).with_duration(duration_per_scene)
