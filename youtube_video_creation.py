@@ -50,7 +50,7 @@ def generate_story():
     
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # हे मॉडेल सर्व Groq अकाउंट्सवर उपलब्ध असते आणि सुपरफास्ट चालते
+            model="openai/gpt-oss-20b",  # सध्याचे अधिकृत आणि ॲक्टिव्ह मॉडेल
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that outputs JSON only."},
                 {"role": "user", "content": prompt}
